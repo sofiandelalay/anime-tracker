@@ -57,4 +57,17 @@ installée via Safari sur l'écran d'accueil. Développement sous Windows, pas d
 - Icônes PNG générées par `scripts/gen-icons.mjs` (zlib natif, aucune dépendance).
 - Numéro de saison = rang dans la franchise triée par date de début.
 - Cache API dans une base Dexie séparée (`anime-cache`) : « Vider le cache » la supprime sans toucher `anime-tracker`.
-- Pas de routeur : l'état d'onglet suffit.
+- Pas de routeur : l'état d'onglet suffit ; les onglets visités restent montés (défilement conservé).
+- Jaquette = `coverImage.large` (servie par AniList depuis le dossier `/medium/`), sinon `medium`.
+- Franchise : on traverse films/OVA via SEQUEL/PREQUEL (S1 → film → S2) mais seuls TV/TV_SHORT/ONA sont des saisons ; parcours plafonné à 40 fiches. Un film ajouté seul = sa propre franchise.
+- Purge (30 j) et « Vider le cache » épargnent les fiches et franchises de ma liste (affichage hors ligne).
+- Changer d'épisode sur une saison À voir ou Abandonnée la passe En cours.
+- Archiver = toutes les saisons En cours / À voir de la franchise passent en Abandonné.
+- Une carte par franchise : saison En cours la plus récente, sinon première À voir dans l'ordre de la franchise. « Saison N » masqué si la franchise n'a qu'une saison.
+- À voir trié par date d'ajout décroissante.
+- Export : feuille de partage iOS (`navigator.share` avec fichier) sinon téléchargement.
+- Le service worker et `storage.persist()` exigent HTTPS : en `vite --host` (HTTP sur le réseau local) l'appli marche mais sans hors ligne ni installation complète ; tester ça sur GitHub Pages.
+
+## Commandes
+- `npm run dev` (vite --host), `npm test`, `npm run build`, `npm run icons` (régénère icônes/écrans de démarrage).
+- Build GitHub Pages : `VITE_BASE=/anime-tracker/ npm run build`.
