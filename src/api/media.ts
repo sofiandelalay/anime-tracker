@@ -1,7 +1,7 @@
 import { cacheDb, type CacheDB } from '../db/cacheDb'
 import { DAY, HOUR, type Media } from '../domain/types'
 import { cleanSynopsis } from '../domain/format'
-import { countsForProgress, preloadChains, resolveRoots, summarizeChain, type ChainSummary, type RootInfo } from '../domain/franchise'
+import { countsForProgress, findDerivedRows, preloadChains, resolveRoots, summarizeChain, type ChainSummary, type RootInfo } from '../domain/franchise'
 import { AniListError, anilist, type AniListClient } from './client'
 import {
   discoveryQuery, MEDIA_BY_IDS, parseRecommendations, recommendationsQuery, SEARCH, SEASON_PAGE, SYNOPSIS, toMedia,
@@ -84,6 +84,7 @@ export async function fetchChainSummaries(
 /**
  * Recherche (cache 1 h) : une ligne par anime, représenté par sa première saison.
  * Film, OVA et spécial gardent leur propre ligne : c'est le seul moyen de les ajouter.
+ * Un dérivé disparaît si son anime principal est aussi dans les résultats.
  */
 export async function searchAnime(query: string, deps: ApiDeps = defaults()): Promise<Media[]> {
   const key = `search:${query.trim().toLowerCase().replace(/\s+/g, ' ')}`
@@ -94,8 +95,10 @@ export async function searchAnime(query: string, deps: ApiDeps = defaults()): Pr
   const fetchedAt = deps.now()
   const found = data.Page.media.map((r) => toMedia(r, fetchedAt)).filter((m): m is Media => m !== null)
   let roots: Map<number, RootInfo>
+  let derived: Set<number>
   try {
     roots = await fetchRoots(found, deps)
+    derived = await findDerivedRows(found, roots, (ids) => fetchMediaByIds(ids, { maxAge: ROOT_MAX_AGE }, deps))
   } catch {
     // Remontée impossible : on montre les saisons trouvées, sans mettre ce résultat incomplet en cache.
     return found
@@ -105,7 +108,7 @@ export async function searchAnime(query: string, deps: ApiDeps = defaults()): Pr
     const shown = countsForProgress(m) ? roots.get(m.id)!.root : m
     if (!byId.has(shown.id)) byId.set(shown.id, shown)
   }
-  const results = [...byId.values()]
+  const results = [...byId.values()].filter((m) => !derived.has(m.id))
   await deps.cache.queries.put({ key, results, fetchedAt })
   return results
 }

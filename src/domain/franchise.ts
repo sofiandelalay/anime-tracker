@@ -146,6 +146,37 @@ export async function resolveRoots(list: Media[], load: MediaLoader): Promise<Ma
   return out
 }
 
+const seriesParents = (m: Media): number[] =>
+  m.relations.filter((r) => r.relationType === 'PARENT' && r.format !== null && PROGRESS_FORMATS.has(r.format)).map((r) => r.id)
+
+/**
+ * Lignes de résultats qui sont des dérivés d'un anime principal déjà listé (Frieren : ●● no Mahou, Re:Zero : Break Time).
+ * Un PARENT seul ne suffit pas : Railgun en a un vers Index, et doit rester trouvable quand Index n'est pas dans les résultats.
+ */
+export async function findDerivedRows(found: Media[], roots: Map<number, RootInfo>, load: MediaLoader): Promise<Set<number>> {
+  const rowOf = (m: Media) => (countsForProgress(m) ? (roots.get(m.id)?.root ?? m) : m)
+  const parentsByRow = new Map<number, Set<number>>()
+  for (const m of found.filter(countsForProgress)) {
+    const row = rowOf(m)
+    const parents = [...seriesParents(m), ...seriesParents(row)]
+    if (parents.length > 0) parentsByRow.set(row.id, new Set([...(parentsByRow.get(row.id) ?? []), ...parents]))
+  }
+  const derived = new Set<number>()
+  if (parentsByRow.size === 0) return derived
+
+  const parents = await load([...new Set([...parentsByRow.values()].flatMap((ids) => [...ids]))])
+  const parentRoots = await resolveRoots([...parents.values()], load)
+  const listed = new Set(found.map((m) => rowOf(m).id))
+  for (const [row, ids] of parentsByRow) {
+    const isDerived = [...ids].some((id) => {
+      const main = parentRoots.get(id)?.root.id
+      return main !== undefined && main !== row && listed.has(main) && !derived.has(main)
+    })
+    if (isDerived) derived.add(row)
+  }
+  return derived
+}
+
 /** Saison suivante dans la franchise (ou null). */
 export function nextInFranchise(mediaIds: number[], mediaId: number): number | null {
   const i = mediaIds.indexOf(mediaId)
