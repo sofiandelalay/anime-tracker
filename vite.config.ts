@@ -25,14 +25,18 @@ export default defineConfig({
         background_color: '#f4f4f2',
         theme_color: '#f4f4f2',
         icons: [
-          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'icons/icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-          { src: 'icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+          { src: 'icons/icon-192.png?v=2', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icons/icon-512.png?v=2', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'icons/icon-512-maskable.png?v=2', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'icons/apple-touch-icon.png?v=2', sizes: '180x180', type: 'image/png', purpose: 'any' },
         ],
       },
+      // Les icônes sont déjà dans includeAssets ; le ?v=2 du manifest ne désigne pas un fichier.
+      includeManifestIcons: false,
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        // ?v=2 sur les icônes : la version préchargée reste servie, y compris hors ligne.
+        ignoreURLParametersMatching: [/^utm_/, /^fbclid$/, /^v$/],
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {

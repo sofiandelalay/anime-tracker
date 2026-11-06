@@ -94,7 +94,7 @@ installée via Safari sur l'écran d'accueil. Développement sous Windows, pas d
 4. Stats ✅
 
 ## Décisions
-- Icônes PNG générées par `scripts/gen-icons.mjs` (zlib natif, aucune dépendance).
+- Icônes et écrans de démarrage générés depuis `design/icone-anime-1024.png` (hors du build) par `scripts/gen-icons.mjs` : sharp est installé le temps du script (`--no-save`), jamais ajouté au projet. Changer l'icône : incrémenter `?v=2` dans `index.html` et `vite.config.ts` ; Workbox ignore ce paramètre pour servir la version préchargée hors ligne.
 - Numéro de saison = rang dans la franchise triée par date de début.
 - Cache API dans une base Dexie séparée (`anime-cache`) : « Vider le cache » la supprime sans toucher `anime-tracker`.
 - Focus de la recherche donné de façon synchrone dans le toucher de l'onglet (`flushSync`) : iOS refuse d'ouvrir le clavier autrement. Une recherche récente est enregistrée quand on la valide ou qu'on utilise un résultat, pas à chaque frappe ; stockée dans `meta`, hors de l'export.
