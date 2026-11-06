@@ -11,8 +11,12 @@ export interface Relation {
 /** Fiche anime réduite aux champs utiles (stockée dans le cache). */
 export interface Media {
   id: number
+  /** Identifiant MyAnimeList, pour les titres d'épisodes (absent des fiches mises en cache avant cet ajout). */
+  idMal?: number | null
   title: { english: string | null; romaji: string | null }
   cover: string | null
+  /** Bannière de l'anime (absente des fiches mises en cache avant cet ajout). */
+  banner?: string | null
   color: string | null
   format: MediaFormat | null
   episodes: number | null
@@ -40,12 +44,29 @@ export const STATUS_LABEL: Record<WatchStatus, string> = {
   DROPPED: 'Abandonné',
 }
 
-/** Une entrée de suivi par saison. */
+/** Plages d'épisodes [de, à], triées et sans chevauchement : [[1, 12], [15, 15]]. */
+export type EpisodeRanges = [number, number][]
+
+export type ViewingState = 'current' | 'completed' | 'interrupted'
+
+/** Un visionnage d'une saison. Dates nulles = inconnues (coché en lot, déclaré après coup). */
+export interface Viewing {
+  number: number
+  watched: EpisodeRanges
+  startedAt: number | null
+  endedAt: number | null
+  state: ViewingState
+}
+
+/** Une entrée par saison, pour tout anime coché, noté ou suivi. */
 export interface Entry {
   mediaId: number
   franchiseId: number
   status: WatchStatus
-  progress: number
+  /** Chaque fois que je regarde la saison ; au plus un en cours. Vide tant que rien n'est coché. */
+  viewings: Viewing[]
+  /** Décide seulement si l'anime apparaît dans À suivre ; mes données existent, suivi ou non. */
+  followed: boolean
   /** 0,5 à 5 par pas de 0,5, ou null. */
   score: number | null
   addedAt: number
@@ -59,7 +80,10 @@ export interface LogItem {
   id?: number
   mediaId: number
   episode: number
-  at: number
+  /** null = date inconnue (coché en lot, rattrapage d'un anime déjà vu) : compte dans les totaux, pas dans « ce mois-ci ». */
+  at: number | null
+  /** Numéro du visionnage. */
+  viewing: number
 }
 
 export interface Franchise {

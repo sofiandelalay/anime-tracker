@@ -4,6 +4,7 @@ import { db, getMeta, setMeta, type TrackerDB } from './trackerDb'
 
 export const CACHE_MAX_AGE = 30 * DAY
 export const COVERS_CACHE = 'covers'
+export const EPISODE_IMAGES_CACHE = 'episode-images'
 
 interface Deps {
   tracker: TrackerDB
@@ -26,9 +27,13 @@ export async function purgeCache(now = Date.now(), deps: Deps = defaults()): Pro
   const limit = now - CACHE_MAX_AGE
   const keep = await protectedIds(deps)
   let removed = 0
-  await deps.cache.transaction('rw', deps.cache.media, deps.cache.queries, deps.cache.franchises, async () => {
+  await deps.cache.transaction('rw', [deps.cache.media, deps.cache.queries, deps.cache.franchises, deps.cache.kv, deps.cache.titles, deps.cache.episodes], async () => {
     removed += await deps.cache.media.where('fetchedAt').below(limit).filter((m) => !keep.media.has(m.id)).delete()
     removed += await deps.cache.queries.where('fetchedAt').below(limit).delete()
+    removed += await deps.cache.kv.where('fetchedAt').below(limit).delete()
+    // Titres d'une saison finie de diffusion : sans expiration.
+    removed += await deps.cache.titles.where('fetchedAt').below(limit).filter((t) => !t.permanent).delete()
+    removed += await deps.cache.episodes.where('fetchedAt').below(limit).filter((e) => !e.permanent).delete()
     removed += await deps.cache.franchises
       .where('computedAt').below(limit).filter((f) => !keep.franchises.has(f.id)).delete()
   })
@@ -38,12 +43,18 @@ export async function purgeCache(now = Date.now(), deps: Deps = defaults()): Pro
 /** « Vider le cache » : recherches, fiches hors liste, jaquettes. Ne touche jamais à mes données. */
 export async function clearCache(deps: Deps = defaults()): Promise<void> {
   const keep = await protectedIds(deps)
-  await deps.cache.transaction('rw', deps.cache.media, deps.cache.queries, deps.cache.franchises, async () => {
+  await deps.cache.transaction('rw', [deps.cache.media, deps.cache.queries, deps.cache.franchises, deps.cache.kv, deps.cache.titles, deps.cache.episodes], async () => {
     await deps.cache.queries.clear()
+    await deps.cache.kv.clear()
+    await deps.cache.titles.clear()
+    await deps.cache.episodes.clear()
     await deps.cache.media.filter((m) => !keep.media.has(m.id)).delete()
     await deps.cache.franchises.filter((f) => !keep.franchises.has(f.id)).delete()
   })
-  if (typeof caches !== 'undefined') await caches.delete(COVERS_CACHE)
+  if (typeof caches !== 'undefined') {
+    await caches.delete(COVERS_CACHE)
+    await caches.delete(EPISODE_IMAGES_CACHE)
+  }
 }
 
 export async function storageEstimate(): Promise<{ usage: number; quota: number } | null> {

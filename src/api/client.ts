@@ -63,34 +63,64 @@ export interface ClientOptions {
   now?: () => number
   sleep?: Sleep
   endpoint?: string
+  timeoutMs?: number
 }
+
+/** Réseau coupé ou erreur du serveur : on réessaie de nous-mêmes, sans déranger. */
+const RETRY_DELAYS = [1000, 3000]
+const REQUEST_TIMEOUT = 15_000
+/** En navigateur, Retry-After n'est lisible que si le serveur l'expose (CORS) : sinon, on attend ceci. */
+const DEFAULT_RETRY_AFTER = 20
+const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false
 
 export class AniListClient {
   private readonly limiter: RateLimiter
   private readonly fetchFn: typeof fetch
   private readonly maxRetries: number
   private readonly endpoint: string
+  private readonly sleep: Sleep
+  private readonly timeoutMs: number
 
   constructor(opts: ClientOptions = {}) {
     this.fetchFn = opts.fetch ?? ((...args) => fetch(...args))
     this.limiter = new RateLimiter(opts.maxPerMinute ?? 25, 60_000, opts.now ?? Date.now, opts.sleep ?? realSleep)
     this.maxRetries = opts.maxRetries ?? 3
     this.endpoint = opts.endpoint ?? ANILIST_ENDPOINT
+    this.sleep = opts.sleep ?? realSleep
+    this.timeoutMs = opts.timeoutMs ?? REQUEST_TIMEOUT
   }
 
   async request<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
+    let failures = 0
+    const retry = async () => {
+      const delay = RETRY_DELAYS[failures++]
+      if (delay === undefined || isOffline()) return false
+      await this.sleep(delay)
+      return true
+    }
     for (let attempt = 0; ; attempt++) {
-      const res = await this.limiter.schedule(() =>
-        this.fetchFn(this.endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ query, variables }),
-        }),
-      )
+      let res: Response
+      try {
+        res = await this.limiter.schedule(() =>
+          this.fetchFn(this.endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ query, variables }),
+            ...(typeof AbortSignal.timeout === 'function' ? { signal: AbortSignal.timeout(this.timeoutMs) } : {}),
+          }),
+        )
+      } catch {
+        if (await retry()) continue
+        throw new AniListError('Réseau indisponible')
+      }
+      if (res.status >= 500) {
+        if (await retry()) continue
+        throw new AniListError(`Erreur AniList (${res.status})`, res.status)
+      }
       if (res.status === 429) {
         if (attempt >= this.maxRetries) throw new AniListError('Trop de requêtes, réessaie dans un instant.', 429)
         const retryAfter = Number(res.headers.get('Retry-After'))
-        this.limiter.pause((Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60) * 1000)
+        this.limiter.pause((Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : DEFAULT_RETRY_AFTER) * 1000)
         continue
       }
       const body = (await res.json().catch(() => null)) as { data?: T; errors?: { message: string }[] } | null

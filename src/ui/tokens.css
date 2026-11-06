@@ -11,6 +11,7 @@
   --color-surface: #ffffff;
   --color-surface-2: #ebebe8;
   --color-surface-pressed: #e0e0dc;
+  --color-segment-thumb: #ffffff;
   --color-text: #1c1c1e;
   --color-text-secondary: #5f6066;
   --color-icon-muted: #8a8b90;
@@ -18,9 +19,15 @@
   --color-accent: #4f5b69;
   --color-on-accent: #ffffff;
   --color-accent-soft: #e3e6ea;
-  --color-progress-track: #e3e3df;
+  /* Secondaire : identique dans les deux thèmes. Jamais en texte sur fond clair ; sur ce jaune, texte foncé. */
+  --color-secondary: #E3BB16;
+  --color-secondary-text: #7D6300; /* AA : 5,2:1 sur le fond, 5,7:1 sur une carte */
+  --color-on-secondary: #1c1c1e;
+  --color-done: #34C759;
+  --color-on-done: #ffffff;
+  --color-track: #e3e3df;
+  --color-check-idle: #c8c8c3;
   --color-progress-aired: #c3c7cd;
-  --color-progress-fill: #5d6875;
   --color-star: #9c7f45;
   --color-star-empty: #d2d2cd;
   --color-danger: #a1453d;
@@ -32,13 +39,19 @@
   --color-skeleton-shine: #f0f0ed;
   --color-bar-bg: rgba(244, 244, 242, 0.84);
   --color-tab-inactive: #66676c;
-  --color-tab-active: #1c1c1e;
+  --color-tab-active: var(--color-secondary-text);
   --color-cover-placeholder: #dcdcd7;
   --color-focus: #4f5b69;
+  /* Texte et bouton posés sur une image : identiques dans les deux thèmes. */
+  --color-hero-text: #ffffff;
+  --color-hero-fade: rgba(0, 0, 0, 0.78);
+  --color-hero-button: rgba(0, 0, 0, 0.45);
   --color-shadow: rgba(0, 0, 0, 0.08);
 
   /* Typographie (système Apple) */
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --text-hero: 3.25rem;        /* 52 */
+  --text-stat: 2.25rem;        /* 36 */
   --text-largetitle: 2.125rem; /* 34 */
   --text-title: 1.375rem;      /* 22 */
   --text-body: 1.0625rem;      /* 17 */
@@ -83,6 +96,7 @@
     --color-surface: #1d1d20;
     --color-surface-2: #2a2a2e;
     --color-surface-pressed: #36363b;
+    --color-segment-thumb: #45454b;
     --color-text: #f2f2f4;
     --color-text-secondary: #a3a4ab;
     --color-icon-muted: #7d7e85;
@@ -90,9 +104,11 @@
     --color-accent: #aeb8c4;
     --color-on-accent: #16181b;
     --color-accent-soft: #2b3036;
-    --color-progress-track: #2c2c30;
+    --color-secondary-text: #E3BB16;
+    --color-done: #30D158;
+    --color-track: #2c2c30;
+    --color-check-idle: #4a4a50;
     --color-progress-aired: #4a4e55;
-    --color-progress-fill: #aeb8c4;
     --color-star: #c9ab72;
     --color-star-empty: #3d3d42;
     --color-danger: #e08a80;
@@ -104,7 +120,6 @@
     --color-skeleton-shine: #2c2c31;
     --color-bar-bg: rgba(20, 20, 22, 0.82);
     --color-tab-inactive: #8e8f96;
-    --color-tab-active: #f2f2f4;
     --color-cover-placeholder: #2a2a2e;
     --color-focus: #aeb8c4;
     --color-shadow: rgba(0, 0, 0, 0.4);

@@ -1,5 +1,5 @@
 import type { RawMedia } from '../api/queries'
-import type { Entry, Media, Relation } from '../domain/types'
+import type { Entry, EpisodeRanges, Media, Relation, Viewing } from '../domain/types'
 
 export function media(id: number, over: Partial<Media> = {}): Media {
   return {
@@ -30,12 +30,18 @@ export const rel = (id: number, relationType: string, over: Partial<Relation> = 
   id, relationType, format: 'TV', status: 'FINISHED', ...over,
 })
 
-export function entry(mediaId: number, over: Partial<Entry> = {}): Entry {
+/** `watched` raccourcit le visionnage 1 : terminé si la saison l'est, sinon en cours. */
+export function entry(mediaId: number, { watched, ...over }: Partial<Entry> & { watched?: EpisodeRanges } = {}): Entry {
+  const done = over.status === 'COMPLETED'
+  const viewings: Viewing[] = watched?.length || done
+    ? [{ number: 1, watched: watched ?? [], startedAt: null, endedAt: null, state: done ? 'completed' : 'current' }]
+    : []
   return {
     mediaId,
     franchiseId: mediaId,
     status: 'PLANNING',
-    progress: 0,
+    viewings,
+    followed: true,
     score: null,
     addedAt: 0,
     startedAt: null,

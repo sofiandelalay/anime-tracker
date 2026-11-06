@@ -1,65 +1,43 @@
 import { useCallback, useState } from 'react'
-import { addAnime, incrementEpisode, type ProgressOutcome } from '../../domain/actions'
+import { archiveFranchise, incrementEpisode, unfollowAnime } from '../../domain/actions'
 import type { CardModel } from '../../domain/listModel'
 import { AnimeCard } from '../components/AnimeCard'
-import { EmptyState, Segmented, SkeletonCards } from '../components/Bits'
-import { IconCloudOff, IconSearch } from '../components/Icons'
+import { EmptyState, OfflinePill, Segmented, SkeletonCards } from '../components/Bits'
+import { IconSearch } from '../components/Icons'
+import { SwipeRow } from '../components/SwipeRow'
 import { useToast } from '../components/Toast'
-import { useLibrary, useOnline } from '../hooks/hooks'
-import { AnimeSheet, type SheetTarget } from './AnimeSheet'
-import { CompletionSheet, type Completion } from './CompletionSheet'
-import { SearchSheet } from './SearchSheet'
+import { useLibrary } from '../hooks/hooks'
+import { useAnimeFlow } from './AnimeFlow'
 
-type View = 'toWatch' | 'completed' | 'archived'
+type View = 'toWatch' | 'completed' | 'shelved' | 'archived'
 const VIEWS: { value: View; label: string }[] = [
   { value: 'toWatch', label: 'À suivre' },
   { value: 'completed', label: 'Terminés' },
+  { value: 'shelved', label: 'Mis de côté' },
   { value: 'archived', label: 'Archivés' },
 ]
 
-export function MyList() {
+export function MyList({ onSearch }: { onSearch: () => void }) {
   const library = useLibrary()
-  const online = useOnline()
   const toast = useToast()
+  const { openPage, handleOutcome, follow } = useAnimeFlow()
   const [view, setView] = useState<View>('toWatch')
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [sheet, setSheet] = useState<SheetTarget | null>(null)
-  const [completion, setCompletion] = useState<Completion | null>(null)
-
-  const handleOutcome = useCallback(
-    (out: ProgressOutcome) => {
-      if (!out.completed) return
-      setCompletion({ mediaId: out.mediaId, nextSeasonId: out.nextSeasonId })
-      toast({
-        message: 'Saison terminée',
-        action: {
-          label: 'Annuler',
-          onAction: async () => {
-            setCompletion(null)
-            await out.undo()
-          },
-        },
-        duration: 5000,
-      })
-    },
-    [toast],
-  )
 
   const onIncrement = useCallback(
-    async (card: CardModel) => {
-      const out = await incrementEpisode(card.media.id)
-      handleOutcome(out)
-    },
+    async (card: CardModel) => handleOutcome(await incrementEpisode(card.media)),
     [handleOutcome],
   )
-  const onOpen = useCallback((card: CardModel) => setSheet({ franchiseId: card.franchiseId, mediaId: card.media.id }), [])
-  const onAddSeason = useCallback(
-    async (card: CardModel) => {
-      await addAnime(card.media)
-      toast({ message: 'Nouvelle saison ajoutée' })
-    },
-    [toast],
-  )
+  const onOpen = useCallback((card: CardModel) => openPage({ franchiseId: card.franchiseId, mediaId: card.media.id }), [openPage])
+  const onFollow = useCallback((card: CardModel) => void follow(card.franchiseId), [follow])
+
+  const archive = async (card: CardModel) => {
+    const undo = await archiveFranchise(card.franchiseId)
+    toast({ message: 'Archivé', action: { label: 'Annuler', onAction: undo }, duration: 5000 })
+  }
+  const unfollow = async (card: CardModel) => {
+    const undo = await unfollowAnime(card.franchiseId)
+    toast({ message: 'Retiré de À suivre', action: { label: 'Annuler', onAction: undo }, duration: 5000 })
+  }
 
   const cards = library?.model[view]
 
@@ -68,41 +46,42 @@ export function MyList() {
       <header className="bar">
         <div className="bar__row">
           <Segmented label="Filtrer ma liste" options={VIEWS} value={view} onChange={setView} />
-          <button type="button" className="icon-button" onClick={() => setSearchOpen(true)} aria-label="Rechercher un anime">
-            <IconSearch />
-          </button>
         </div>
-        {!online && (
-          <p className="offline-pill" role="status">
-            <IconCloudOff width={14} height={14} /> Hors ligne
-          </p>
-        )}
+        <OfflinePill />
       </header>
 
       <main className="screen__content">
         {!cards ? (
           <SkeletonCards />
         ) : cards.length === 0 ? (
-          <Empty view={view} hasEntries={(library?.entries.length ?? 0) > 0} onSearch={() => setSearchOpen(true)} />
+          <Empty view={view} hasEntries={(library?.entries.length ?? 0) > 0} onSearch={onSearch} />
         ) : (
           <div className="card-list" key={view}>
-            {cards.map((c) => (
-              <AnimeCard key={c.key} card={c} onOpen={onOpen} onIncrement={onIncrement} onAddSeason={onAddSeason} />
-            ))}
+            {cards.map((c) => {
+              const card = <AnimeCard key={c.key} card={c} onOpen={onOpen} onIncrement={onIncrement} onFollow={onFollow} />
+              return view === 'toWatch' ? (
+                <SwipeRow
+                  key={c.key}
+                  actions={[
+                    { label: 'Archiver', tone: 'danger', onAction: () => void archive(c) },
+                    { label: 'Ne plus suivre', onAction: () => void unfollow(c) },
+                  ]}
+                >
+                  {card}
+                </SwipeRow>
+              ) : card
+            })}
           </div>
         )}
       </main>
-
-      <SearchSheet open={searchOpen} onClose={() => setSearchOpen(false)} />
-      <AnimeSheet target={sheet} onClose={() => setSheet(null)} onProgress={handleOutcome} />
-      <CompletionSheet completion={completion} onClose={() => setCompletion(null)} />
     </div>
   )
 }
 
 function Empty({ view, hasEntries, onSearch }: { view: View; hasEntries: boolean; onSearch: () => void }) {
   if (view === 'completed') return <EmptyState title="Rien de terminé pour l’instant" text="Les séries que tu finis viendront se ranger ici." />
-  if (view === 'archived') return <EmptyState title="Aucune archive" text="Ce que tu mets de côté se retrouve ici, au calme." />
+  if (view === 'shelved') return <EmptyState title="Rien de mis de côté" text="Ce que tu commences sans le suivre t’attendra ici, sans pression." />
+  if (view === 'archived') return <EmptyState title="Aucune archive" text="Ce que tu abandonnes se retrouve ici, au calme." />
   return (
     <EmptyState
       title={hasEntries ? 'Tu es à jour' : 'Ajoute ton premier anime'}

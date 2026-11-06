@@ -14,8 +14,8 @@ export default defineConfig({
       injectRegister: false,
       includeAssets: ['icons/*.png', 'splash/*.png'],
       manifest: {
-        name: 'Mes animes',
-        short_name: 'Animes',
+        name: 'Anime',
+        short_name: 'Anime',
         description: 'Mon suivi d’animes, épisode par épisode.',
         lang: 'fr',
         start_url: base,
@@ -28,6 +28,7 @@ export default defineConfig({
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
           { src: 'icons/icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
         ],
       },
       workbox: {
@@ -41,6 +42,16 @@ export default defineConfig({
             options: {
               cacheName: 'covers',
               expiration: { maxEntries: 300, maxAgeSeconds: 30 * 24 * 3600, purgeOnQuotaError: true },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Vignettes d'épisodes (hébergées ailleurs) : jamais en IndexedDB, cache plafonné à part.
+            urlPattern: ({ request, sameOrigin }) => !sameOrigin && request.destination === 'image',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'episode-images',
+              expiration: { maxEntries: 100, maxAgeSeconds: 30 * 24 * 3600, purgeOnQuotaError: true },
               cacheableResponse: { statuses: [0, 200] },
             },
           },

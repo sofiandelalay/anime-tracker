@@ -1,5 +1,5 @@
 import { liveQuery } from 'dexie'
-import { useEffect, useState, type DependencyList } from 'react'
+import { useEffect, useRef, useState, type DependencyList } from 'react'
 import { cacheDb } from '../../db/cacheDb'
 import { db } from '../../db/trackerDb'
 import { buildListModel, type ListModel } from '../../domain/listModel'
@@ -55,11 +55,26 @@ export function useLibrary(): Library | undefined {
     const franchiseList = (await cacheDb.franchises.bulkGet(fids)).filter((f): f is Franchise => !!f)
     const ids = new Set(entries.map((e) => e.mediaId))
     for (const f of franchiseList) f.mediaIds.forEach((id) => ids.add(id))
-    const first = (await cacheDb.media.bulkGet([...ids])).filter((m): m is Media => !!m)
-    const sequels = first.flatMap((m) => m.relations.filter((r) => r.relationType === 'SEQUEL').map((r) => r.id))
-    const extra = (await cacheDb.media.bulkGet(sequels.filter((id) => !ids.has(id)))).filter((m): m is Media => !!m)
-    const media = new Map([...first, ...extra].map((m) => [m.id, m]))
+    const media = new Map((await cacheDb.media.bulkGet([...ids])).filter((m): m is Media => !!m).map((m) => [m.id, m]))
     const franchises = new Map(franchiseList.map((f) => [f.id, f]))
     return { entries, media, franchises, model: buildListModel(entries, media, franchises) }
   }, [])
+}
+
+/** Tant que `failed` : réessaie au retour du réseau, et de temps en temps si on est en ligne. */
+export function useAutoRetry(failed: boolean, retry: () => void, everyMs = 20_000): void {
+  const latest = useRef(retry)
+  latest.current = retry
+  useEffect(() => {
+    if (!failed) return
+    const run = () => {
+      if (navigator.onLine) latest.current()
+    }
+    const timer = setInterval(run, everyMs)
+    window.addEventListener('online', run)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('online', run)
+    }
+  }, [failed, everyMs])
 }

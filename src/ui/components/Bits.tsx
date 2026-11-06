@@ -1,5 +1,7 @@
 import { useId, useRef, useState, type ReactNode } from 'react'
 import type { ProgressInfo } from '../../domain/progress'
+import { useOnline } from '../hooks/hooks'
+import { IconCloudOff } from './Icons'
 
 /** Contrôle segmenté iOS. */
 export function Segmented<T extends string>({
@@ -55,7 +57,17 @@ export function ProgressBar({ info, label }: { info: ProgressInfo; label: string
   )
 }
 
-export function Cover({ src, size = 'm', alt = '' }: { src: string | null; size?: 's' | 'm' | 'l'; alt?: string }) {
+export function OfflinePill() {
+  const online = useOnline()
+  if (online) return null
+  return (
+    <p className="offline-pill" role="status">
+      <IconCloudOff width={14} height={14} /> Hors ligne
+    </p>
+  )
+}
+
+export function Cover({ src, size = 'm', alt = '', children }: { src: string | null; size?: 's' | 'm' | 'l' | 'xl' | 'fill'; alt?: string; children?: ReactNode }) {
   const [loaded, setLoaded] = useState(false)
   return (
     <div className={`cover cover--${size}`}>
@@ -69,7 +81,37 @@ export function Cover({ src, size = 'm', alt = '' }: { src: string | null; size?
           onLoad={() => setLoaded(true)}
         />
       )}
+      {children}
     </div>
+  )
+}
+
+/** Étoiles en lecture seule (note globale, moyenne des saisons). */
+export function StarsDisplay({ value, size = 24 }: { value: number | null; size?: number }) {
+  const clip = `half${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+  return (
+    <span className="stars stars--display" aria-hidden="true">
+      <StarIcons shown={value ?? 0} size={size} clip={clip} />
+    </span>
+  )
+}
+
+function StarIcons({ shown, size, clip }: { shown: number; size: number; clip: string }) {
+  return (
+    <>
+      {[1, 2, 3, 4, 5].map((i) => {
+        const fill = shown >= i ? 1 : shown >= i - 0.5 ? 0.5 : 0
+        return (
+          <svg key={i} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+            <defs>
+              <clipPath id={`${clip}-${i}`}><rect x="0" y="0" width="12" height="24" /></clipPath>
+            </defs>
+            <path className="stars__empty" d={STAR} />
+            {fill > 0 && <path className="stars__full" d={STAR} clipPath={fill === 0.5 ? `url(#${clip}-${i})` : undefined} />}
+          </svg>
+        )
+      })}
+    </>
   )
 }
 
@@ -117,18 +159,7 @@ export function Stars({ value, onChange, size = 30 }: { value: number | null; on
         e.preventDefault()
       }}
     >
-      {[1, 2, 3, 4, 5].map((i) => {
-        const fill = shown >= i ? 1 : shown >= i - 0.5 ? 0.5 : 0
-        return (
-          <svg key={i} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-            <defs>
-              <clipPath id={`${clip}-${i}`}><rect x="0" y="0" width="12" height="24" /></clipPath>
-            </defs>
-            <path className="stars__empty" d={STAR} />
-            {fill > 0 && <path className="stars__full" d={STAR} clipPath={fill === 0.5 ? `url(#${clip}-${i})` : undefined} />}
-          </svg>
-        )
-      })}
+      <StarIcons shown={shown} size={size} clip={clip} />
     </div>
   )
 }

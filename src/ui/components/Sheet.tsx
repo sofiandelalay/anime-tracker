@@ -8,14 +8,12 @@ interface Props {
   /** Libellé VoiceOver de la feuille. */
   label: string
   children: ReactNode
-  /** Feuille presque plein écran (recherche). */
-  tall?: boolean
 }
 
 const CLOSE_MS = 260
 
 /** Feuille modale iOS : glisse depuis le bas, se ferme en tirant la poignée vers le bas. */
-export function Sheet({ open, onClose, label, children, tall }: Props) {
+export function Sheet({ open, onClose, label, children }: Props) {
   const [mounted, setMounted] = useState(open)
   const [closing, setClosing] = useState(false)
   const [drag, setDrag] = useState(0)
@@ -68,7 +66,7 @@ export function Sheet({ open, onClose, label, children, tall }: Props) {
       <div className="sheet-backdrop" onClick={onClose} aria-hidden="true" />
       <div
         ref={panel}
-        className={`sheet${tall ? ' sheet--tall' : ''}`}
+        className="sheet"
         role="dialog"
         aria-modal="true"
         aria-label={label}
